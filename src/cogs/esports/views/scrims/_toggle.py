@@ -23,13 +23,21 @@ class ScrimsToggle(ScrimsView):
     async def initial_message(self):
         _e = discord.Embed(color=self.bot.color)
         _e.description = "**Start / Stop scrim registration of {}**".format(self.record)
-        _e.set_author(name=f"Page - {' / '.join(await self.record.scrim_posi())}", icon_url=self.bot.user.avatar.url)
+
+        _e.set_author(
+            name=f"Page - {' / '.join(await self.record.scrim_posi())}",
+            icon_url=self.bot.user.display_avatar.url
+        )
+
         return _e
 
     async def refresh_view(self):
         await self._add_buttons()
         try:
-            self.message = await self.message.edit(embed=await self.initial_message, view=self)
+            self.message = await self.message.edit(
+                embed=await self.initial_message,
+                view=self
+            )
         except discord.HTTPException:
             await self.on_timeout()
 
@@ -48,13 +56,20 @@ class ScrimsToggle(ScrimsView):
 
 class StartReg(ScrimsButton):
     def __init__(self):
-        super().__init__(label="Start Reg", style=discord.ButtonStyle.green, row=2)
+        super().__init__(
+            label="Start Reg",
+            style=discord.ButtonStyle.green,
+            row=2
+        )
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
         if not self.view.record.closed_at and self.view.record.opened_at:
-            return await self.view.ctx.error("Registration is already open. To restart, pls stop registration first.", 4)
+            return await self.view.ctx.error(
+                "Registration is already open. To restart, pls stop registration first.",
+                4
+            )
 
         try:
             await self.view.record.start_registration()
@@ -62,19 +77,29 @@ class StartReg(ScrimsButton):
             return await self.view.ctx.error(e, 10)
 
         else:
-            await self.view.ctx.success(f"Registration opened {self.view.record}.", 5)
+            await self.view.ctx.success(
+                f"Registration opened {self.view.record}.",
+                5
+            )
             await self.view.record.refresh_from_db()
 
 
 class StopReg(ScrimsButton):
     def __init__(self):
-        super().__init__(label="Stop Reg", style=discord.ButtonStyle.red, row=2)
+        super().__init__(
+            label="Stop Reg",
+            style=discord.ButtonStyle.red,
+            row=2
+        )
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
         if not self.view.record.opened_at:
-            return await self.view.ctx.error("Registration is already closed.", 5)
+            return await self.view.ctx.error(
+                "Registration is already closed.",
+                5
+            )
 
         try:
             await self.view.record.close_registration()
@@ -83,4 +108,7 @@ class StopReg(ScrimsButton):
 
         else:
             await self.view.record.refresh_from_db()
-            await self.view.ctx.success(f"Registration closed {self.view.record}.", 5)
+            await self.view.ctx.success(
+                f"Registration closed {self.view.record}.",
+                5
+            )
