@@ -51,26 +51,33 @@ class Quomisc(Cog, name="quomisc"):
     ):
         """Refer to the source code of the bot commands."""
 
-        og_source_url = "https://github.com/quotientbot/Shinchan-Bot"
-        legacy_url = "https://github.com/CycloneAddons/Shinchan-Legacy"
+        og_source_url = (
+            "https://github.com/quotientbot/Shinchan-Bot"
+        )
+
+        legacy_url = (
+            "https://github.com/CycloneAddons/"
+            "Shinchan-Legacy"
+        )
 
         if search is None:
             e = Embed(
                 title="📦 Bot Source Code",
                 description=(
-                    f"**Original Shinchan Source:** "
+                    "**Original Shinchan Source:** "
                     f"[Click Here]({og_source_url})\n"
-                    f"**Shinchan Legacy:** "
+                    "**Shinchan Legacy:** "
                     f"[Private Repository]({legacy_url})\n\n"
-                    "_The Shinchan Legacy repo is now open-source "
-                    "with video tutorial._ "
-                    "https://www.youtube.com/watch?v=7E2hB0sX0hg"
+                    "_The Shinchan Legacy repo is now "
+                    "open-source with video tutorial._ "
+                    "https://www.youtube.com/watch?v="
+                    "7E2hB0sX0hg"
                 ),
                 color=config.COLOR
             )
 
             e.set_footer(
-                text="Revived and maintained by Cyclone Addons ❤️"
+                text="Revived and maintained by Mod Tryout ❤️"
             )
 
             return await ctx.send(embed=e)
@@ -107,7 +114,7 @@ class Quomisc(Cog, name="quomisc"):
         )
 
         e.set_footer(
-            text="Revived and maintained by Cyclone Addons ❤️"
+            text="Revived and maintained by Mod Tryout ❤️"
         )
 
         await ctx.send(embed=e)
@@ -262,6 +269,7 @@ class Quomisc(Cog, name="quomisc"):
     async def setup_cmd(self, ctx: Context):
         """
         Setup Shinchan in the current server.
+        This creates a private channel in the server.
         """
 
         _view = SetupButtonView(ctx)
@@ -370,7 +378,8 @@ class Quomisc(Cog, name="quomisc"):
 
         db_latency = await self.bot.db_latency
 
-        # FIXED: pkg_resources removed
+        # FIXED:
+        # pkg_resources -> importlib.metadata
         version = package_version("discord.py")
 
         revision = self.get_last_commits()
@@ -396,7 +405,9 @@ class Quomisc(Cog, name="quomisc"):
             self.bot.users
         )
 
-        total_command_uses = await Commands.all().count()
+        total_command_uses = (
+            await Commands.all().count()
+        )
 
         user_invokes = (
             await Commands.filter(
@@ -515,11 +526,9 @@ class Quomisc(Cog, name="quomisc"):
         embed.add_field(
             name=f"{emote.diamond} Legacy & Tribute",
             value=(
-                f"Originally created by "
-                f"[**{str(legacy_owner)}**]"
-                f"(https://github.com/deadaf), "
-                f"whose vision built the foundation "
-                f"of Shinchan."
+                "Originally created by "
+                "**Mod Tryout**, whose vision "
+                "built the foundation of Shinchan."
             ),
             inline=False
         )
@@ -527,11 +536,11 @@ class Quomisc(Cog, name="quomisc"):
         embed.set_footer(
             text=(
                 f"Made with discord.py v{version} "
-                f"| Powered by Devspire"
+                f"| Powered by Mod Tryout"
             ),
             icon_url=(
                 "http://i.imgur.com/5BFecvA.png"
-            ),
+            )
         )
 
         links = [
@@ -553,7 +562,7 @@ class Quomisc(Cog, name="quomisc"):
 
     @commands.command()
     async def ping(self, ctx: Context):
-        """Check how the bot is doing"""
+        """Check how the bot is doing."""
 
         await ctx.send(
             f"Bot: "
@@ -563,7 +572,7 @@ class Quomisc(Cog, name="quomisc"):
 
     @commands.command()
     async def voteremind(self, ctx: Context):
-        """Get a reminder when your vote expires"""
+        """Get a reminder when your vote expires."""
 
         check = await Votes.get_or_none(
             user_id=ctx.author.id
@@ -599,7 +608,7 @@ class Quomisc(Cog, name="quomisc"):
         *,
         new_prefix: str = None
     ):
-        """Change your server's prefix"""
+        """Change your server's prefix."""
 
         if not new_prefix:
 
@@ -645,7 +654,7 @@ class Quomisc(Cog, name="quomisc"):
         *,
         new_color: QuoColor
     ):
-        """Change color of Shinchan's embeds"""
+        """Change color of Shinchan's embeds."""
 
         color = int(
             str(new_color).replace("#", ""),
@@ -675,7 +684,7 @@ class Quomisc(Cog, name="quomisc"):
         *,
         new_footer: str
     ):
-        """Change footer of embeds sent by Shinchan"""
+        """Change footer of embeds sent by Shinchan."""
 
         if len(new_footer) > 50:
             return await ctx.success(
@@ -724,7 +733,9 @@ class Quomisc(Cog, name="quomisc"):
 
         if not user.money >= 120:
             _view.children[0] = discord.ui.Button(
-                label="Claim Prime (120 coins)",
+                label=(
+                    "Claim Prime (120 coins)"
+                ),
                 custom_id="claim_prime",
                 style=discord.ButtonStyle.grey,
                 disabled=True
@@ -746,9 +757,10 @@ class Quomisc(Cog, name="quomisc"):
 
         e.description = (
             "**Rewards**\n"
-            f"{emote.roocool} Voter Role `12 hrs`\n"
+            f"{emote.roocool} "
+            "Voter Role `12 hrs`\n"
             f"{self.bot.config.PRIME_EMOJI} "
-            f"Quo Coin `x1`"
+            "Quo Coin `x1`"
         )
 
         e.set_thumbnail(
@@ -762,17 +774,21 @@ class Quomisc(Cog, name="quomisc"):
         )
 
         if vote and vote.is_voter:
-            _b: discord.ui.Button = discord.ui.Button(
-                disabled=True,
-                style=discord.ButtonStyle.grey,
-                custom_id="vote_quo",
-                label=(
-                    f"Vote in "
-                    f"{human_timedelta("
-                    f"vote.expire_time,"
-                    f"accuracy=1,"
-                    f"suffix=False)}"
-                ),
+
+            # FIXED: safe f-string
+            vote_time = human_timedelta(
+                vote.expire_time,
+                accuracy=1,
+                suffix=False
+            )
+
+            _b: discord.ui.Button = (
+                discord.ui.Button(
+                    disabled=True,
+                    style=discord.ButtonStyle.grey,
+                    custom_id="vote_quo",
+                    label=f"Vote in {vote_time}",
+                )
             )
 
             _view.children[0] = _b
@@ -786,7 +802,7 @@ class Quomisc(Cog, name="quomisc"):
                 ctx.author.display_avatar,
                 "url",
                 self.bot.user.display_avatar.url
-            ),
+            )
         )
 
         _view.message = await ctx.send(
@@ -827,13 +843,17 @@ class Quomisc(Cog, name="quomisc"):
 
         e.description = ""
 
-        async with self.bot.session.get(url) as response:
+        async with self.bot.session.get(
+            url
+        ) as response:
+
             data = await response.json()
 
             for idx, contributor in enumerate(
                 data,
                 start=1
             ):
+
                 if contributor["type"] == "Bot":
                     continue
 
@@ -853,6 +873,7 @@ class Quomisc(Cog, name="quomisc"):
 
 
 async def setup(bot: Shinchan) -> None:
+
     await bot.add_cog(
         Quomisc(bot)
     )
