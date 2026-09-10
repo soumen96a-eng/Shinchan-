@@ -62,8 +62,8 @@ OWNER_ID = "..."
 DEVS = []
 
 SERVER_LINK = "..."
-SERVER_ID =  
-TOURNEY_CSV_CHANNEL = 
+SERVER_ID = 0 
+TOURNEY_CSV_CHANNEL = 0
 EMOJIS_SERVER = [] #atleast 2 server id required...
 
 BOT_INVITE = "...."
