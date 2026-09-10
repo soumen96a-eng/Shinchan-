@@ -1,13 +1,20 @@
+import os
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
+
+if DISCORD_TOKEN.startswith("Bot "):
+    DISCORD_TOKEN = DISCORD_TOKEN[4:].strip()
+
+
 TORTOISE = {
     "connections": {
-         "default": "postgres://username:password@host/db_name",
-     
+        "default": "postgres://username:password@host/db_name",
     },
     "apps": {
         "models": {
             "models": [
                 "models.misc",
-                "models", 
+                "models",
                 "aerich.models"
             ],
             "default_connection": "default",
@@ -15,30 +22,6 @@ TORTOISE = {
     }
 }
 
-# TORTOISE = {
-#     "connections": {
-#         "default": {
-#             "engine": "tortoise.backends.asyncpg",
-#             "credentials": {
-#                 "host": "host_address",
-#                 "user": "username",
-#                 "password": "password",
-#                 "database": "db_name",
-#                 "port": 5432,
-#             }
-#         }
-#     },
-#     "apps": {
-#         "models": {
-#             "models": [
-#                 "models.misc",
-#                 "models",
-#                 "aerich.models"
-#             ],
-#             "default_connection": "default",
-#         }
-#     }
-# }
 
 EXTENSIONS = [
     "cogs.esports",
@@ -51,56 +34,75 @@ EXTENSIONS = [
 ]
 
 
-DISCORD_TOKEN = "..."
-
-
 COLOR = 0x00FFB3
 FOOTER = "Shinchan Never Die!"
 PREFIX = "q"
 PRIME_EMOJI = "⚡"
-OWNER_ID = "..."
+
+OWNER_ID = 0
 DEVS = []
 
-SERVER_LINK = "..."
-SERVER_ID = 0 
+SERVER_LINK = ""
+SERVER_ID = 0
 TOURNEY_CSV_CHANNEL = 0
-EMOJIS_SERVER = [] #atleast 2 server id required...
+EMOJIS_SERVER = []
 
-BOT_INVITE = "...."
+BOT_INVITE = ""
+
 
 ACTIVITIES = [
-    {"type": "playing", "name": "scrims across {servers} servers"},
-    {"type": "listening", "name": "strategic calls from {members} players"},
-    {"type": "watching", "name": "tournament brackets update in real time"},
-    {"type": "competing", "name": "to lead the eSports automation arena"},
-    {"type": "streaming", "name": "live event analytics", "url": "https://twitch.tv/Shinchan"},
+    {
+        "type": "playing",
+        "name": "scrims across {servers} servers"
+    },
+    {
+        "type": "listening",
+        "name": "strategic calls from {members} players"
+    },
+    {
+        "type": "watching",
+        "name": "tournament brackets update in real time"
+    },
+    {
+        "type": "competing",
+        "name": "to lead the eSports automation arena"
+    },
+    {
+        "type": "streaming",
+        "name": "live event analytics",
+        "url": "https://twitch.tv/Shinchan"
+    },
 ]
 
-# ─────────────────────────────────────────────────────────────
-#  Activity Placeholders (usable in "name" field)
-#  These will automatically update with live bot stats.
-#
-#  Available Placeholders:
-#    {servers}   → Total number of servers the bot is in
-#    {members}   → Sum of all members across all servers
-#    {msgs}      → Total messages seen since startup
-#    {uptime}    → Current uptime in human-readable format
-#    {cmds}      → Total commands executed since startup
-#
-#  Example:
-#    {"type": "playing", "name": "serving {servers} communities"}
-# ─────────────────────────────────────────────────────────────
+
+SHARD_LOG = ""
+ERROR_LOG = ""
+PUBLIC_LOG = ""
 
 
-# LOGS
-SHARD_LOG = "..."
-ERROR_LOG = "..."
-PUBLIC_LOG = "..."
-
-
-
-# IGNORE RIGHT NOW
-WEBSITE = "https://github.com/CycloneAddons/Shinchan-Legacy"
-REPOSITORY = "https://github.com/CycloneAddons/Shinchan-Legacy"
 FASTAPI_URL = "https://ocr.gfxvisual.xyz"
-FASTAPI_KEY ="cyclonestrongsecret"
+FASTAPI_KEY = ""
+
+
+VOTER_ROLE = 0
+
+PREMIUM_ROLE = 0
+PREMIUM_AVATAR = ""
+PRO_LINK = ""
+
+SERVER_PORT = 8888
+
+PAYU_KEY = ""
+PAYU_SALT = ""
+PAYU_PAYMENT_LINK = ""
+
+SUCCESS_URL = ""
+FAILED_URL = ""
+
+GUILD_LOGS = ""
+
+SOCKET_URL = ""
+SOCKET_AUTH = ""
+
+RILP_PREMIUM = ""
+RILP_HEADERS = {}
