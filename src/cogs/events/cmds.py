@@ -27,13 +27,15 @@ class CmdEvents(Cog):
         self.bot = bot
 
         self.command_ratelimited_users = {}
-        self.command_ratelimiter = UserCommandLimits(cooldown.QuotientRatelimiter)
+        self.command_ratelimiter = UserCommandLimits(
+            cooldown.QuotientRatelimiter
+        )
 
     async def bot_check(self, ctx: Context):
         author = ctx.author
         message = ctx.message
 
-        user = await User.get(user_id=author.id)  # safe way to check isDev
+        user = await User.get(user_id=author.id)
         is_dev = user.is_dev if user else False
 
         if is_dev:
@@ -42,20 +44,52 @@ class CmdEvents(Cog):
         if not ctx.guild:
             return False
 
-        if author.id in self.bot.cache.blocked_ids or ctx.guild.id in self.bot.cache.blocked_ids:
+        if (
+            author.id in self.bot.cache.blocked_ids
+            or ctx.guild.id in self.bot.cache.blocked_ids
+        ):
             return False
 
-        if retry_after := self.command_ratelimiter[message.author].is_ratelimited(message.author):
+        if retry_after := self.command_ratelimiter[
+            message.author
+        ].is_ratelimited(message.author):
+
             if author.id in self.command_ratelimited_users:
                 return
 
-            self.command_ratelimited_users[author.id] = self.bot.current_time + timedelta(seconds=retry_after)
-            self.bot.loop.create_task(self.remove_from_ratelimited_users(author.id, retry_after))
+            self.command_ratelimited_users[author.id] = (
+                self.bot.current_time
+                + timedelta(seconds=retry_after)
+            )
+
+            self.bot.loop.create_task(
+                self.remove_from_ratelimited_users(
+                    author.id,
+                    retry_after
+                )
+            )
 
             await ctx.error(
-                f"You are being ratelimited for using commands too fast. \n\n**Try again after `{retry_after:.2f} seconds`**."
+                "You are being ratelimited for using commands too fast. "
+                f"\n\n**Try again after `{retry_after:.2f} seconds`**."
             )
             return False
+
+        # ============================================
+        # ALLOW BOTUPDATE OFF DURING MAINTENANCE
+        # ============================================
+
+        if (
+            self.bot.lockdown is True
+            and message.content.lower().strip().startswith(
+                f"{self.bot.config.PREFIX}botupdate off"
+            )
+        ):
+            return True
+
+        # ============================================
+        # MAINTENANCE / LOCKDOWN MODE
+        # ============================================
 
         if self.bot.lockdown is True:
             t = (
@@ -65,14 +99,21 @@ class CmdEvents(Cog):
             )
 
             if self.bot.lockdown_msg:
-                t += f"\n\n**Message from developer:**\n{self.bot.lockdown_msg} ~ deadshot#7999"
+                t += (
+                    f"\n\n**Message from developer:**\n"
+                    f"{self.bot.lockdown_msg} ~ deadshot#7999"
+                )
 
             await ctx.error(t)
             return False
 
         return True
 
-    async def remove_from_ratelimited_users(self, user_id: int, after: int):
+    async def remove_from_ratelimited_users(
+        self,
+        user_id: int,
+        after: int
+    ):
         await asyncio.sleep(after)
         self.command_ratelimited_users.pop(user_id, None)
 
@@ -97,24 +138,48 @@ class CmdEvents(Cog):
         guild = member.guild
 
         with suppress(discord.HTTPException):
-            record = await Autorole.get_or_none(guild_id=guild.id)
+            record = await Autorole.get_or_none(
+                guild_id=guild.id
+            )
+
             if not record:
                 return
 
             if not member.bot and record.humans:
                 for role in record.humans:
                     try:
-                        await member.add_roles(discord.Object(id=role), reason="Shinchan's autorole")
-                    except (discord.NotFound, discord.Forbidden):
-                        await Autorole.filter(guild_id=guild.id).update(humans=ArrayRemove("humans", role))
+                        await member.add_roles(
+                            discord.Object(id=role),
+                            reason="Shinchan's autorole"
+                        )
+                    except (
+                        discord.NotFound,
+                        discord.Forbidden
+                    ):
+                        await Autorole.filter(
+                            guild_id=guild.id
+                        ).update(
+                            humans=ArrayRemove("humans", role)
+                        )
                         continue
 
             elif member.bot and record.bots:
                 for role in record.bots:
                     try:
-                        await member.add_roles(discord.Object(id=role), reason="Shinchan's autorole")
-                    except (discord.Forbidden, discord.NotFound):
-                        await Autorole.filter(guild_id=guild.id).update(bots=ArrayRemove("bots", role))
+                        await member.add_roles(
+                            discord.Object(id=role),
+                            reason="Shinchan's autorole"
+                        )
+                    except (
+                        discord.Forbidden,
+                        discord.NotFound
+                    ):
+                        await Autorole.filter(
+                            guild_id=guild.id
+                        ).update(
+                            bots=ArrayRemove("bots", role)
+                        )
                         continue
+
             else:
                 return
