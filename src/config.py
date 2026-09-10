@@ -1,9 +1,20 @@
 import os
 
 
+# =========================
+# DATABASE
+# =========================
+
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+# Railway gives postgresql://
+# Old Tortoise version requires postgres://
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgres://", 1)
+
 TORTOISE = {
     "connections": {
-        "default": os.getenv("DATABASE_URL", ""),
+        "default": DATABASE_URL,
     },
     "apps": {
         "models": {
@@ -18,6 +29,10 @@ TORTOISE = {
 }
 
 
+# =========================
+# EXTENSIONS
+# =========================
+
 EXTENSIONS = [
     "cogs.esports",
     "cogs.events",
@@ -29,11 +44,19 @@ EXTENSIONS = [
 ]
 
 
+# =========================
+# DISCORD
+# =========================
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
 
 if DISCORD_TOKEN.startswith("Bot "):
     DISCORD_TOKEN = DISCORD_TOKEN[4:].strip()
 
+
+# =========================
+# BASIC CONFIG
+# =========================
 
 COLOR = 0x00FFB3
 FOOTER = "Shinchan Never Die!"
@@ -44,6 +67,10 @@ OWNER_ID = "..."
 DEVS = []
 
 
+# =========================
+# SERVER
+# =========================
+
 SERVER_LINK = "https://discord.gg/vcVVr7GdU"
 
 SERVER_ID = 0
@@ -53,8 +80,16 @@ TOURNEY_CSV_CHANNEL = 0
 EMOJIS_SERVER = []
 
 
+# =========================
+# BOT INVITE
+# =========================
+
 BOT_INVITE = "https://discord.com/oauth2/authorize?client_id=1547597946286243921"
 
+
+# =========================
+# ACTIVITIES
+# =========================
 
 ACTIVITIES = [
     {
@@ -81,12 +116,20 @@ ACTIVITIES = [
 ]
 
 
+# =========================
+# LOGS
+# =========================
+
 SHARD_LOG = "..."
 
 ERROR_LOG = "..."
 
 PUBLIC_LOG = "https://discord.com/api/webhooks/1547625152957911091/tL92DiZ_aDViSopupDdDgLhH3tzID8BJ1F7bGYjuuQpfzqo5bThWfMZSFrkT3mIxSNV1"
 
+
+# =========================
+# OTHER
+# =========================
 
 WEBSITE = "https://github.com/CycloneAddons/Shinchan-Legacy"
 
