@@ -8,7 +8,14 @@ from discord.ext import commands
 
 import config
 from models import Guild, User
-from utils import LinkButton, LinkType, QuoPaginator, discord_timestamp, truncate_string, emote
+from utils import (
+    LinkButton,
+    LinkType,
+    QuoPaginator,
+    discord_timestamp,
+    truncate_string,
+    emote,
+)
 
 from .Cog import Cog
 
@@ -18,7 +25,11 @@ class HelpCommand(commands.HelpCommand):
         super().__init__(
             verify_checks=False,
             command_attrs={
-                "cooldown": commands.CooldownMapping.from_cooldown(1, 8.0, commands.BucketType.member),
+                "cooldown": commands.CooldownMapping.from_cooldown(
+                    1,
+                    8.0,
+                    commands.BucketType.member
+                ),
                 "help": "Shows help about the bot, a command, or a category",
             },
         )
@@ -27,147 +38,344 @@ class HelpCommand(commands.HelpCommand):
     def color(self):
         return self.context.bot.color
 
-    async def send_bot_help(self, mapping: Mapping[Cog, List[commands.Command]]):
+    async def send_bot_help(
+        self,
+        mapping: Mapping[Cog, List[commands.Command]]
+    ):
         ctx = self.context
 
         hidden = ("HelpCog", "Dev")
 
         embed = discord.Embed(color=self.color)
 
-        server = f"[Support Server]({config.SERVER_LINK})"
-        invite = f"[Invite Me]({config.BOT_INVITE})"
-        dashboard = f"[Privacy Policy](https://github.com/quotientbot/Shinchan-Bot/wiki/privacy-policy)"
+        # Support Server
+        server = (
+            "[Support Server]"
+            "(https://discord.gg/vcVVr7GdU)"
+        )
 
-        embed.description = f"{server} **|** {invite} **|** {dashboard}\n\n"
+        # Bot Invite
+        invite = (
+            "[Invite Me]"
+            "(https://discord.com/oauth2/authorize?client_id=1547597946286243921)"
+        )
+
+        # Privacy Policy
+        dashboard = (
+            "[Privacy Policy]"
+            "(https://github.com/quotientbot/Shinchan-Bot/wiki/privacy-policy)"
+        )
+
+        embed.description = (
+            f"{server} **|** {invite} **|** {dashboard}\n\n"
+        )
 
         guild = await Guild.get_or_none(pk=ctx.guild.id)
+
         if guild and guild.is_premium:
-            embed.description += f"{emote.top_user} [__Server Premium ending:__]({config.SERVER_LINK}) *`forever (or until Cyclone dies)`*"
+            embed.description += (
+                f"{emote.top_user} "
+                f"[__Server Premium ending:__]"
+                f"(https://discord.gg/vcVVr7GdU) "
+                f"*`MOD IS A LEGEND`*"
+            )
 
         for cog, cmds in mapping.items():
-            user = await User.get(user_id=ctx.author.id)  # safe way to check isDev
+            user = await User.get(
+                user_id=ctx.author.id
+            )
+
             is_dev = user.is_dev if user else False
 
-            if not is_dev and (not cog or cog.qualified_name in hidden):
-               continue
+            if not is_dev and (
+                not cog
+                or cog.qualified_name in hidden
+            ):
+                continue
+
             if is_dev:
-               filtered_cmds = cmds
+                filtered_cmds = cmds
             else:
-                filtered_cmds = await self.filter_commands(cmds, sort=True)
+                filtered_cmds = await self.filter_commands(
+                    cmds,
+                    sort=True
+                )
 
             if not filtered_cmds:
                 continue
 
-            commands_list = ", ".join(map(lambda x: f"`{x}`", filtered_cmds))
+            commands_list = ", ".join(
+                map(
+                    lambda x: f"`{x}`",
+                    filtered_cmds
+                )
+            )
+
             if len(commands_list) > 1024:
-                commands_list = commands_list[:1021] + "..."
+                commands_list = (
+                    commands_list[:1021]
+                    + "..."
+                )
+
             embed.add_field(
                 inline=False,
-                name=cog.qualified_name.title() if cog else "No Category",
+                name=(
+                    cog.qualified_name.title()
+                    if cog
+                    else "No Category"
+                ),
                 value=commands_list,
             )
 
-
-
-
         slash_cmds = await ctx.bot.tree.fetch_commands()
-        slash_cmds = [f"{i.mention}" for i in slash_cmds]
-        slash_cmds_value = ", ".join(slash_cmds)
-        if len(slash_cmds_value) > 1024:
-            slash_cmds_value = slash_cmds_value[:1021] + "..."
-        embed.add_field(name="Slash Commands", value=slash_cmds_value, inline=False)
 
+        slash_cmds = [
+            f"{i.mention}"
+            for i in slash_cmds
+        ]
+
+        slash_cmds_value = ", ".join(
+            slash_cmds
+        )
+
+        if len(slash_cmds_value) > 1024:
+            slash_cmds_value = (
+                slash_cmds_value[:1021]
+                + "..."
+            )
+
+        embed.add_field(
+            name="Slash Commands",
+            value=slash_cmds_value,
+            inline=False
+        )
 
         links = [
-            LinkType("Support Server", config.SERVER_LINK),
-            LinkType("Invite Me", config.BOT_INVITE),
+            LinkType(
+                "Support Server",
+                "https://discord.gg/vcVVr7GdU"
+            ),
+            LinkType(
+                "Invite Me",
+                "https://discord.com/oauth2/authorize?client_id=1547597946286243921"
+            ),
         ]
-        await ctx.send(embed=embed, embed_perms=True, view=LinkButton(links))
 
-    async def send_group_help(self, group: commands.Group):
+        await ctx.send(
+            embed=embed,
+            embed_perms=True,
+            view=LinkButton(links)
+        )
+
+    async def send_group_help(
+        self,
+        group: commands.Group
+    ):
         prefix = self.context.prefix
 
         if not group.commands:
-            return await self.send_command_help(group)
+            return await self.send_command_help(
+                group
+            )
 
-        embed = discord.Embed(color=discord.Color(self.color))
+        embed = discord.Embed(
+            color=discord.Color(self.color)
+        )
 
-        embed.title = f"{group.qualified_name} {group.signature}"
-        _help = group.help or "No description provided..."
+        embed.title = (
+            f"{group.qualified_name} "
+            f"{group.signature}"
+        )
 
-        _cmds = "\n".join(f"`{prefix}{c.qualified_name}` : {truncate_string(c.short_doc,60)}" for c in group.commands)
+        _help = (
+            group.help
+            or "No description provided..."
+        )
 
-        embed.description = f"> {_help}\n\n**Subcommands**\n{_cmds}"
+        _cmds = "\n".join(
+            f"`{prefix}{c.qualified_name}` : "
+            f"{truncate_string(c.short_doc, 60)}"
+            for c in group.commands
+        )
 
-        embed.set_footer(text=f'Use "{prefix}help <command>" for more information.')
+        embed.description = (
+            f"> {_help}\n\n"
+            f"**Subcommands**\n"
+            f"{_cmds}"
+        )
+
+        embed.set_footer(
+            text=(
+                f'Use "{prefix}help <command>" '
+                f"for more information."
+            )
+        )
 
         if group.aliases:
             embed.add_field(
                 name="Aliases",
-                value=", ".join(f"`{aliases}`" for aliases in group.aliases),
+                value=", ".join(
+                    f"`{aliases}`"
+                    for aliases in group.aliases
+                ),
                 inline=False,
             )
 
         examples = []
+
         if group.extras:
             if _gif := group.extras.get("gif"):
-                embed.set_image(url=_gif)
+                embed.set_image(
+                    url=_gif
+                )
 
-            if _ex := group.extras.get("examples"):
-                examples = [f"{self.context.prefix}{i}" for i in _ex]
+            if _ex := group.extras.get(
+                "examples"
+            ):
+                examples = [
+                    f"{self.context.prefix}{i}"
+                    for i in _ex
+                ]
 
         if examples:
-            examples: str = "\n".join(examples)  # type: ignore
-            embed.add_field(name="Examples", value=f"```{examples}```")
+            examples: str = "\n".join(
+                examples
+            )
 
-        await self.context.send(embed=embed, embed_perms=True)
+            embed.add_field(
+                name="Examples",
+                value=f"```{examples}```"
+            )
 
-    async def send_cog_help(self, cog: Cog):
-        paginator = QuoPaginator(self.context, per_page=14)
+        await self.context.send(
+            embed=embed,
+            embed_perms=True
+        )
+
+    async def send_cog_help(
+        self,
+        cog: Cog
+    ):
+        paginator = QuoPaginator(
+            self.context,
+            per_page=14
+        )
+
         c = 0
+
         for cmd in cog.get_commands():
             if not cmd.hidden:
-                _brief = "No Information..." if not cmd.short_doc else truncate_string(cmd.short_doc, 60)
-                paginator.add_line(f"`{cmd.qualified_name}` : {_brief}")
+                _brief = (
+                    "No Information..."
+                    if not cmd.short_doc
+                    else truncate_string(
+                        cmd.short_doc,
+                        60
+                    )
+                )
+
+                paginator.add_line(
+                    f"`{cmd.qualified_name}` : "
+                    f"{_brief}"
+                )
+
                 c += 1
 
-        paginator.title = f"{cog.qualified_name.title()} ({c})"
+        paginator.title = (
+            f"{cog.qualified_name.title()} "
+            f"({c})"
+        )
+
         await paginator.start()
 
-    async def send_command_help(self, cmd: commands.Command):
-        embed = discord.Embed(color=self.color)
-        embed.title = "Command: " + cmd.qualified_name
+    async def send_command_help(
+        self,
+        cmd: commands.Command
+    ):
+        embed = discord.Embed(
+            color=self.color
+        )
+
+        embed.title = (
+            "Command: "
+            + cmd.qualified_name
+        )
 
         examples = []
 
-        alias = ",".join((f"`{alias}`" for alias in cmd.aliases)) if cmd.aliases else "No aliases"
+        alias = (
+            ",".join(
+                f"`{alias}`"
+                for alias in cmd.aliases
+            )
+            if cmd.aliases
+            else "No aliases"
+        )
+
         _text = (
-            f"**Description:** {cmd.help or 'No help found...'}\n"
-            f"**Usage:** `{self.get_command_signature(cmd)}`\n"
-            f"**Aliases:** {alias}\n"
+            f"**Description:** "
+            f"{cmd.help or 'No help found...'}\n"
+            f"**Usage:** "
+            f"`{self.get_command_signature(cmd)}`\n"
+            f"**Aliases:** "
+            f"{alias}\n"
             f"**Examples:**"
         )
 
         if cmd.extras:
             if _gif := cmd.extras.get("gif"):
-                embed.set_image(url=_gif)
+                embed.set_image(
+                    url=_gif
+                )
 
-            if _ex := cmd.extras.get("examples"):
-                examples = [f"{self.context.prefix}{i}" for i in _ex]
+            if _ex := cmd.extras.get(
+                "examples"
+            ):
+                examples = [
+                    f"{self.context.prefix}{i}"
+                    for i in _ex
+                ]
 
-        examples: str = "\n".join(examples) if examples else "Command has no examples"  # type: ignore
+        examples: str = (
+            "\n".join(examples)
+            if examples
+            else "Command has no examples"
+        )
 
-        _text += f"```{examples}```"
+        _text += (
+            f"```{examples}```"
+        )
 
         embed.description = _text
 
-        await self.context.send(embed=embed, embed_perms=True)
+        await self.context.send(
+            embed=embed,
+            embed_perms=True
+        )
 
-    async def command_not_found(self, string: str):
-        message = f"Could not find the `{string}` command. "
-        commands_list = (str(cmd) for cmd in self.context.bot.walk_commands())
+    async def command_not_found(
+        self,
+        string: str
+    ):
+        message = (
+            f"Could not find the "
+            f"`{string}` command. "
+        )
 
-        if dym := "\n".join(get_close_matches(string, commands_list)):
-            message += f"Did you mean...\n{dym}"
+        commands_list = (
+            str(cmd)
+            for cmd in self.context.bot.walk_commands()
+        )
+
+        if dym := "\n".join(
+            get_close_matches(
+                string,
+                commands_list
+            )
+        ):
+            message += (
+                f"Did you mean...\n"
+                f"{dym}"
+            )
 
         return message
