@@ -1,0 +1,361 @@
+from __future__ import annotations
+
+import typing as T
+
+if T.TYPE_CHECKING:
+    from core import Shinchan
+
+import asyncio
+import datetime
+
+import discord
+from discord.ext import commands
+from prettytable import PrettyTable
+
+from core import Cog, Context
+from models import BlockIdType, BlockList, Commands, User
+from utils import get_ipm
+
+from .helper import tabulate_query
+
+__all__ = ("Dev",)
+
+
+class Dev(Cog):
+    def __init__(self, bot: Shinchan):
+        self.bot = bot
+
+    async def cog_check(self, ctx: Context):
+        user = await User.get(user_id=ctx.author.id) #safe way to check isDev
+        is_dev = user.is_dev if user else False
+        return True
+
+    @commands.group(hidden=True, invoke_without_command=True)
+    async def bl(self, ctx: Context):
+        """Blocklist commands."""
+        await ctx.send_help(ctx.command)
+
+    @bl.command(name="add")
+    async def bl_add(self, ctx: Context, item: discord.User | int, *, reason: str = None):
+        """Block a user or guild from using the bot."""
+        block_id_type = BlockIdType.USER if isinstance(item, discord.User) else BlockIdType.GUILD
+        block_id = item.id if isinstance(item, discord.User) else item
+
+        record = await BlockList.get_or_none(block_id=block_id, block_id_type=block_id_type)
+        if record:
+            return await ctx.error(f"{item} is already blocked.")
+
+        await BlockList.create(block_id=block_id, block_id_type=block_id_type, reason=reason)
+        self.bot.cache.blocked_ids.add(block_id)
+        await ctx.success(f"{item} has been blocked.")
+
+    @bl.command(name="remove")
+    async def bl_remove(self, ctx: Context, item: discord.User | int):
+        """Unblock a user or guild from using the bot."""
+        block_id = item.id if isinstance(item, discord.User) else item
+
+        record = await BlockList.get_or_none(block_id=block_id)
+        if not record:
+            return await ctx.error(f"{item} is not blocked.")
+
+        await record.delete()
+        self.bot.cache.blocked_ids.remove(block_id)
+        await ctx.success(f"{item} has been unblocked.")
+
+    @bl.command(name="debug")
+    async def bl_debug(self, ctx: Context, *, code: str):
+        """Evaluate Python code (dev-only)."""
+
+        import io, textwrap, traceback
+        from contextlib import redirect_stdout
+
+        code = code.strip("` ")
+        if code.startswith("py\n"):
+            code = code[3:]
+
+        env = {
+            "bot": self.bot,
+            "ctx": ctx,
+            "discord": discord,
+            "commands": commands,
+            "asyncio": asyncio,
+            "datetime": datetime,
+            "T": T,
+            "self": self,
+            "user": ctx.author,
+            "_": getattr(self, "_last_eval_result", None),
+        }
+
+        stdout = io.StringIO()
+        try:
+            wrapped = f"async def _eval():\n{textwrap.indent(code, '    ')}"
+            exec(wrapped, env)
+            func = env["_eval"]
+            with redirect_stdout(stdout):
+                result = await func()
+        except Exception as e:
+            value = stdout.getvalue()
+            error = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            return await ctx.error(f"```py\n{value}{error}```")
+
+        self._last_eval_result = result
+        value = stdout.getvalue()
+        output = f"{value}{result!r}" if result is not None else value
+        if not output.strip():
+            output = "No output."
+
+        if len(output) > 1900:
+            await ctx.send(file=discord.File(io.BytesIO(output.encode()), filename="output.txt"))
+        else:
+            await ctx.success(f"```py\n{output}```")
+
+
+    @commands.command(hidden=True)
+    async def sync(
+        self,
+        ctx: commands.Context,
+        guilds: commands.Greedy[discord.Object],
+        spec: T.Optional[T.Literal["~", "*", "^"]] = None,
+    ) -> None:
+        if not guilds:
+            if spec == "~":
+                synced = await self.bot.tree.sync(guild=ctx.guild)
+            elif spec == "*":
+                self.bot.tree.copy_global_to(guild=ctx.guild)
+                synced = await self.bot.tree.sync(guild=ctx.guild)
+            elif spec == "^":
+                self.bot.tree.clear_commands(guild=ctx.guild)
+                await self.bot.tree.sync(guild=ctx.guild)
+                synced = []
+            else:
+                synced = await self.bot.tree.sync()
+
+            await ctx.send(f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}")
+            return
+
+        ret = 0
+        for guild in guilds:
+            try:
+                await self.bot.tree.sync(guild=guild)
+            except discord.HTTPException:
+                pass
+            else:
+                ret += 1
+
+        await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+
+    @commands.group(hidden=True, invoke_without_command=True)
+    async def botupdate(self, ctx: Context):
+        await ctx.send_help(ctx.command)
+
+    @botupdate.command(name="on")
+    async def botmaintenance_on(self, ctx: Context, *, msg: str = None):
+        self.bot.lockdown = True
+        self.bot.lockdown_msg = msg
+        await ctx.success("Now in maintenance mode")
+        await asyncio.sleep(120)
+
+        if not self.bot.lockdown:
+            return await ctx.error("Lockdown mode has been cancelled")
+
+        await ctx.success("Reloading...")
+        self.bot.reboot()
+
+    @botupdate.command(name="off")
+    async def botmaintenance_off(self, ctx: Context):
+        self.bot.lockdown, self.bot.lockdown_msg = False, None
+        await ctx.success("Okay, stopped reload.")
+
+    @commands.command(hidden=True)
+    async def cmds(self, ctx: Context):
+        total_uses = await Commands.all().count()
+
+        records = await ctx.db.fetch(
+            "SELECT cmd, COUNT(*) AS uses FROM commands GROUP BY cmd ORDER BY uses DESC LIMIT 15 "
+        )
+
+        table = PrettyTable()
+        table.field_names = ["Command", "Invoke Count"]
+        for record in records:
+            table.add_row([record["cmd"], record["uses"]])
+
+        table = table.get_string()
+        embed = self.bot.embed(ctx, title=f"Command Usage ({total_uses})")
+        embed.description = f"```{table}```"
+
+        cmds = sum(1 for i in self.bot.walk_commands())
+
+        embed.set_footer(text="Total Commands: {}  | Invoke rate per minute: {}".format(cmds, round(get_ipm(ctx.bot), 2)))
+
+        await ctx.send(embed=embed)
+
+    @commands.group(hidden=True, invoke_without_command=True, name="history")
+    async def command_history(self, ctx):
+        """Command history."""
+        query = """SELECT
+                        CASE failed
+                            WHEN TRUE THEN cmd || ' [!]'
+                            ELSE cmd
+                        END AS "cmd",
+                        to_char(used_at, 'Mon DD HH12:MI:SS AM') AS "invoked",
+                        user_id,
+                        guild_id
+                   FROM commands
+                   ORDER BY used_at DESC
+                   LIMIT 15;
+                """
+        await tabulate_query(ctx, query)
+
+    @commands.command(hidden=True)
+    async def update(self, ctx: Context, mode: str = "pull"):
+        """
+        Update the bot from GitHub.
+        Modes:
+        - pull  → Normal git pull
+        - reset → git reset --hard origin/main
+        - force → fetch + hard reset + pull
+        """
+
+        import os
+        import subprocess
+
+        REPO_URL = "https://github.com/CycloneAddons/Shinchan-Legacy"
+        BRANCH = "main"
+
+        def run(cmd):
+            return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+        log = []
+
+        log.append(f"📌 Working directory: {os.getcwd()}")
+        log.append(f"🛠 Mode: {mode}")
+
+        # Step 1 — init git if needed
+        if not os.path.exists(".git"):
+            log.append("🟡 No .git found → initializing repository...")
+            run(["git", "init"])
+        else:
+            log.append("🟢 Git repo detected.")
+
+        # Step 2 — add remote if needed
+        remotes = run(["git", "remote"]).stdout.strip().split("\n")
+        if "origin" not in remotes:
+            log.append(f"🟡 Adding origin → {REPO_URL}")
+            run(["git", "remote", "add", "origin", REPO_URL])
+        else:
+            log.append("🟢 Remote 'origin' exists.")
+
+        # ---- MODE HANDLING ----
+
+        if mode.lower() == "pull":
+            log.append("🔄 Running normal git pull...")
+            result = run(["git", "pull"])
+
+        elif mode.lower() == "reset":
+            log.append("♻️ Running hard reset to origin/main...")
+            result = run(["git", "fetch", "origin"])
+            log.append(result.stdout)
+            result = run(["git", "reset", "--hard", f"origin/{BRANCH}"])
+
+        elif mode.lower() == "force":
+            log.append("🚨 FORCE MODE: Full fetch + hard reset + pull")
+            result = run(["git", "fetch", "--all"])
+            log.append(result.stdout)
+            result = run(["git", "reset", "--hard", f"origin/{BRANCH}"])
+            log.append(result.stdout)
+            result = run(["git", "pull"])
+
+        else:
+            return await ctx.error(
+                "❌ Invalid mode.\nUse: `qupdate`, `qupdate reset`, or `qupdate force`."
+            )
+
+        log.append(result.stdout)
+        log.append("✅ Update complete!")
+
+        final_output = "\n".join(log)
+
+        if len(final_output) > 1800:
+            import io
+            await ctx.send(file=discord.File(io.BytesIO(final_output.encode()), filename="qupdate_log.txt"))
+        else:
+            await ctx.success(f"```py\n{final_output}```")
+
+
+    @command_history.command(name="for")
+    async def command_history_for(self, ctx, days: T.Optional[int] = 7, *, command: str):
+        """Command history for a command."""
+        query = """SELECT *, t.success + t.failed AS "total"
+                   FROM (
+                       SELECT guild_id,
+                              SUM(CASE WHEN failed THEN 0 ELSE 1 END) AS "success",
+                              SUM(CASE WHEN failed THEN 1 ELSE 0 END) AS "failed"
+                       FROM commands
+                       WHERE cmd=$1
+                       AND used_at > (CURRENT_TIMESTAMP - $2::interval)
+                       GROUP BY guild_id
+                   ) AS t
+                   ORDER BY "total" DESC
+                   LIMIT 30;
+                """
+
+        await tabulate_query(ctx, query, command, datetime.timedelta(days=days))
+
+    @command_history.command(name="guild", aliases=["server"])
+    async def command_history_guild(self, ctx, guild_id: int):
+        """Command history for a guild."""
+        query = """SELECT
+                        CASE failed
+                            WHEN TRUE THEN cmd || ' [!]'
+                            ELSE cmd
+                        END AS "cmd",
+                        channel_id,
+                        user_id,
+                        used_at
+                   FROM commands
+                   WHERE guild_id=$1
+                   ORDER BY used_at DESC
+                   LIMIT 15;
+                """
+        await tabulate_query(ctx, query, guild_id)
+
+    @command_history.command(name="user", aliases=["member"])
+    async def command_history_user(self, ctx, user_id: int):
+        """Command history for a user."""
+        query = """SELECT
+                        CASE failed
+                            WHEN TRUE THEN cmd || ' [!]'
+                            ELSE cmd
+                        END AS "cmd",
+                        guild_id,
+                        used_at
+                   FROM commands
+                   WHERE user_id=$1
+                   ORDER BY used_at DESC
+                   LIMIT 20;
+                """
+        await tabulate_query(ctx, query, user_id)
+
+    @command_history.command(name="cog")
+    async def command_history_cog(self, ctx, days: T.Optional[int] = 7, *, cog: str = None):
+        """Command history for a cog or grouped by a cog."""
+        interval = datetime.timedelta(days=days)
+        if cog is not None:
+            cog = self.bot.get_cog(cog)
+            if cog is None:
+                return await ctx.send(f"Unknown cog: {cog}")
+
+            query = """SELECT *, t.success + t.failed AS "total"
+                       FROM (
+                           SELECT command,
+                                  SUM(CASE WHEN failed THEN 0 ELSE 1 END) AS "success",
+                                  SUM(CASE WHEN failed THEN 1 ELSE 0 END) AS "failed"
+                           FROM commands
+                           WHERE cmd = any($1::text[])
+                           AND used_at > (CURRENT_TIMESTAMP - $2::interval)
+                           GROUP BY cmd
+                       ) AS t
+                       ORDER BY "total" DESC
+                       LIMIT 30;
+                    """
+            return await tabulate_query(ctx, query, [c.qualified_name for c in cog.walk_commands()], interval)

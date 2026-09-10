@@ -1,0 +1,14 @@
+__pycache__/
+.vscode
+.idea
+*.py[cod]
+env/*
+.venv/*
+config.py
+*.log
+migrations/
+.DS_Store
+venv
+quotient-ocr/
+test.py
+db.sqlite3
