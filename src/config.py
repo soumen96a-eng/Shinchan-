@@ -12,9 +12,20 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "")
 # DATABASE
 # ============================================================
 
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# Railway uses postgresql://
+# This Tortoise version expects postgres://
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://",
+        "postgres://",
+        1
+    )
+
 TORTOISE = {
     "connections": {
-        "default": os.getenv("DATABASE_URL", "")
+        "default": DATABASE_URL
     },
     "apps": {
         "models": {
@@ -69,6 +80,7 @@ DEVS = []
 SERVER_LINK = ""
 SERVER_ID = 0
 TOURNEY_CSV_CHANNEL = 0
+
 EMOJIS_SERVER = []
 
 
@@ -151,7 +163,7 @@ FAILED_URL = ""
 
 
 # ============================================================
-# SOCKET / LOG SETTINGS
+# SOCKET / GUILD LOGS
 # ============================================================
 
 GUILD_LOGS = ""
