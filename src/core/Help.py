@@ -51,7 +51,7 @@ class HelpCommand(commands.HelpCommand):
         # Support Server
         server = (
             "[Support Server]"
-            "(https://discord.gg/vcVVr7GdU)"
+            "(https://discord.gg/fPfAEQPdr)"
         )
 
         # Bot Invite
