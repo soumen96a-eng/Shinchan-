@@ -43,8 +43,13 @@ class Quomisc(Cog, name="quomisc"):
         self.bot = bot
 
     @commands.command(aliases=("src",))
-    async def source(self, ctx: Context, *, search: typing.Optional[str]):
-        """Refer to the source code of the bot."""
+    async def source(
+        self,
+        ctx: Context,
+        *,
+        search: typing.Optional[str]
+    ):
+        """Refer to the source code of the bot commands."""
 
         og_source_url = "https://github.com/quotientbot/Shinchan-Bot"
         legacy_url = "https://github.com/CycloneAddons/Shinchan-Legacy"
@@ -53,16 +58,19 @@ class Quomisc(Cog, name="quomisc"):
             e = Embed(
                 title="📦 Bot Source Code",
                 description=(
-                    f"**Original Shinchan Source:** [Click Here]({og_source_url})\n"
-                    f"**Shinchan Legacy:** [Private Repository]({legacy_url})\n\n"
-                    "_The Shinchan Legacy repo is now open-source with video tutorial._ "
+                    f"**Original Shinchan Source:** "
+                    f"[Click Here]({og_source_url})\n"
+                    f"**Shinchan Legacy:** "
+                    f"[Private Repository]({legacy_url})\n\n"
+                    "_The Shinchan Legacy repo is now open-source "
+                    "with video tutorial._ "
                     "https://www.youtube.com/watch?v=7E2hB0sX0hg"
                 ),
-                color=config.COLOR,
+                color=config.COLOR
             )
 
             e.set_footer(
-                text="Revived and maintained by Mod Tryout ❤️"
+                text="Revived and maintained by Cyclone Addons ❤️"
             )
 
             return await ctx.send(embed=e)
@@ -70,26 +78,36 @@ class Quomisc(Cog, name="quomisc"):
         command = ctx.bot.get_command(search)
 
         if not command:
-            return await ctx.send("Couldn't find that command.")
+            return await ctx.send(
+                "Couldn't find that command."
+            )
 
         src = command.callback.__code__
         filename = src.co_filename
         lines, firstlineno = inspect.getsourcelines(src)
-        location = os.path.relpath(filename).replace("\\", "/")
+
+        location = os.path.relpath(
+            filename
+        ).replace("\\", "/")
 
         final_url = (
-            f"{og_source_url}/blob/main/{location}"
-            f"#L{firstlineno}-L{firstlineno + len(lines) - 1}"
+            f"{og_source_url}/blob/main/"
+            f"{location}"
+            f"#L{firstlineno}-L"
+            f"{firstlineno + len(lines) - 1}"
         )
 
         e = Embed(
             title=f"🔍 Source for `{command.name}`",
-            description=f"[Click here to view the source]({final_url})",
-            color=config.COLOR,
+            description=(
+                f"[Click here to view the source]"
+                f"({final_url})"
+            ),
+            color=config.COLOR
         )
 
         e.set_footer(
-            text="Revived and maintained by Mod Tryout ❤️"
+            text="Revived and maintained by Cyclone Addons ❤️"
         )
 
         await ctx.send(embed=e)
@@ -105,7 +123,7 @@ class Quomisc(Cog, name="quomisc"):
                 style=discord.ButtonStyle.link,
                 label="Invite Shinchan (Me)",
                 url=self.bot.config.BOT_INVITE,
-                row=1,
+                row=1
             )
         )
 
@@ -114,7 +132,7 @@ class Quomisc(Cog, name="quomisc"):
                 style=discord.ButtonStyle.link,
                 label="Invite Shinchan Legacy",
                 url=self.bot.config.PRO_LINK,
-                row=2,
+                row=2
             )
         )
 
@@ -123,46 +141,63 @@ class Quomisc(Cog, name="quomisc"):
                 style=discord.ButtonStyle.link,
                 label="Join Support Server",
                 url=self.bot.config.SERVER_LINK,
-                row=3,
+                row=3
             )
         )
 
         await ctx.reply(view=v)
 
     async def make_private_channel(
-        self, ctx: Context
+        self,
+        ctx: Context
     ) -> discord.TextChannel:
 
-        support_link = f"[Support Server]({ctx.config.SERVER_LINK})"
-        invite_link = f"[Invite Me]({ctx.config.BOT_INVITE})"
-        vote_link = f"[Vote]({ctx.config.WEBSITE}/vote)"
-        source = f"[Source]({ctx.config.REPOSITORY})"
+        support_link = (
+            f"[Support Server]({ctx.config.SERVER_LINK})"
+        )
+
+        invite_link = (
+            f"[Invite Me]({ctx.config.BOT_INVITE})"
+        )
+
+        vote_link = (
+            f"[Vote]({ctx.config.WEBSITE}/vote)"
+        )
+
+        source = (
+            f"[Source]({ctx.config.REPOSITORY})"
+        )
 
         guild = ctx.guild
 
         overwrites = {
-            guild.default_role: discord.PermissionOverwrite(
-                read_messages=False
-            ),
-            guild.me: discord.PermissionOverwrite(
-                read_messages=True,
-                send_messages=True,
-                read_message_history=True,
-                embed_links=True,
-                attach_files=True,
-                manage_channels=True,
-            ),
-            ctx.author: discord.PermissionOverwrite(
-                read_messages=True,
-                send_messages=True,
-                read_message_history=True,
-            ),
+            guild.default_role:
+                discord.PermissionOverwrite(
+                    read_messages=False
+                ),
+
+            guild.me:
+                discord.PermissionOverwrite(
+                    read_messages=True,
+                    send_messages=True,
+                    read_message_history=True,
+                    embed_links=True,
+                    attach_files=True,
+                    manage_channels=True,
+                ),
+
+            ctx.author:
+                discord.PermissionOverwrite(
+                    read_messages=True,
+                    send_messages=True,
+                    read_message_history=True,
+                ),
         }
 
         channel = await guild.create_text_channel(
             "Shinchan-private",
             overwrites=overwrites,
-            reason=f"Made by {str(ctx.author)}",
+            reason=f"Made by {str(ctx.author)}"
         )
 
         await Guild.filter(
@@ -177,24 +212,27 @@ class Quomisc(Cog, name="quomisc"):
             name="**What is this channel for?**",
             inline=False,
             value=(
-                "This channel is made for Shinchan to send important "
-                "announcements and activities that need your attention. "
-                "If anything goes wrong with any of my functionality I "
-                "will notify you here. Important announcements from the "
+                "This channel is made for Shinchan to send "
+                "important announcements and activities that "
+                "need your attention. If anything goes wrong "
+                "with any of my functionality I will notify "
+                "you here. Important announcements from the "
                 "developer will be sent directly here too.\n\n"
-                "You can test my commands in this channel if you like. "
-                "Kindly don't delete it, some of my commands won't work "
-                "without this channel."
+                "You can test my commands in this channel if "
+                "you like. Kindly don't delete it, some of my "
+                "commands won't work without this channel."
             ),
         )
 
         e.add_field(
             name="**__Important Links__**",
             value=(
-                f"{support_link} | {invite_link} | "
-                f"{vote_link} | {source}"
+                f"{support_link} | "
+                f"{invite_link} | "
+                f"{vote_link} | "
+                f"{source}"
             ),
-            inline=False,
+            inline=False
         )
 
         links = [
@@ -227,6 +265,7 @@ class Quomisc(Cog, name="quomisc"):
         """
 
         _view = SetupButtonView(ctx)
+
         _view.add_item(
             QuotientView.tricky_invite_button()
         )
@@ -239,14 +278,14 @@ class Quomisc(Cog, name="quomisc"):
             return await ctx.error(
                 f"You already have a private channel "
                 f"({record.private_ch.mention})",
-                view=_view,
+                view=_view
             )
 
         channel = await self.make_private_channel(ctx)
 
         await ctx.success(
             f"Created {channel.mention}",
-            view=_view,
+            view=_view
         )
 
     def get_bot_uptime(self, *, brief=False):
@@ -254,13 +293,13 @@ class Quomisc(Cog, name="quomisc"):
             self.bot.start_time,
             accuracy=None,
             brief=brief,
-            suffix=False,
+            suffix=False
         )
 
     @staticmethod
     def format_commit(commit):
-
         short, _, _ = commit.message.partition("\n")
+
         short_sha2 = commit.hex[0:6]
 
         commit_tz = timezone(
@@ -281,7 +320,8 @@ class Quomisc(Cog, name="quomisc"):
             f"[`{short_sha2}`]"
             f"(https://github.com/CycloneAddons/"
             f"Shinchan-Legacy/commit/{commit.hex}) "
-            f"{truncate_string(short, 40)} ({offset})"
+            f"{truncate_string(short, 40)} "
+            f"({offset})"
         )
 
     def get_last_commits(self, count=3):
@@ -299,9 +339,9 @@ class Quomisc(Cog, name="quomisc"):
                 itertools.islice(
                     repo.walk(
                         repo.head.target,
-                        pygit2.GIT_SORT_TOPOLOGICAL,
+                        pygit2.GIT_SORT_TOPOLOGICAL
                     ),
-                    count,
+                    count
                 )
             )
 
@@ -315,7 +355,9 @@ class Quomisc(Cog, name="quomisc"):
             )
 
         except Exception as e:
-            return f"❌ Error reading git repository: {e}"
+            return (
+                f"❌ Error reading git repository: {e}"
+            )
 
     @commands.command(aliases=("stats",))
     @commands.cooldown(
@@ -356,14 +398,20 @@ class Quomisc(Cog, name="quomisc"):
 
         total_command_uses = await Commands.all().count()
 
-        user_invokes = await Commands.filter(
-            user_id=ctx.author.id,
-            guild_id=ctx.guild.id
-        ).count() or 0
+        user_invokes = (
+            await Commands.filter(
+                user_id=ctx.author.id,
+                guild_id=ctx.guild.id
+            ).count()
+            or 0
+        )
 
-        server_invokes = await Commands.filter(
-            guild_id=ctx.guild.id
-        ).count() or 0
+        server_invokes = (
+            await Commands.filter(
+                guild_id=ctx.guild.id
+            ).count()
+            or 0
+        )
 
         chnl_count = Counter(
             map(
@@ -375,13 +423,13 @@ class Quomisc(Cog, name="quomisc"):
         owner = await self.bot.getch(
             self.bot.get_user,
             self.bot.fetch_user,
-            ctx.config.OWNER_ID,
+            ctx.config.OWNER_ID
         )
 
         legacy_owner = await self.bot.getch(
             self.bot.get_user,
             self.bot.fetch_user,
-            548163406537162782,
+            548163406537162782
         )
 
         msges = self.bot.seen_messages
@@ -389,21 +437,23 @@ class Quomisc(Cog, name="quomisc"):
 
         embed = discord.Embed(
             description=(
-                f"{emote.diamond} **Latest Changes:**\n"
+                f"{emote.diamond} "
+                f"**Latest Changes:**\n"
                 f"{revision}"
             ),
-            color=self.bot.color,
+            color=self.bot.color
         )
 
         embed.title = (
-            f"{emote.bot} Shinchan - The Legacy Continues"
+            f"{emote.bot} "
+            f"Shinchan - The Legacy Continues"
         )
 
         embed.url = ctx.config.SERVER_LINK
 
         embed.set_author(
             name=str(owner),
-            icon_url=owner.display_avatar.url,
+            icon_url=owner.display_avatar.url
         )
 
         embed.add_field(
@@ -411,7 +461,7 @@ class Quomisc(Cog, name="quomisc"):
             value=(
                 f"{guild_value:,} total\n"
                 f"{len(self.bot.shards)} shards"
-            ),
+            )
         )
 
         embed.add_field(
@@ -419,7 +469,7 @@ class Quomisc(Cog, name="quomisc"):
             value=(
                 f"{self.get_bot_uptime(brief=True)}\n"
                 f"{msges:,} messages seen"
-            ),
+            )
         )
 
         embed.add_field(
@@ -427,7 +477,7 @@ class Quomisc(Cog, name="quomisc"):
             value=(
                 f"{total_members:,} total\n"
                 f"{cached_members:,} cached"
-            ),
+            )
         )
 
         embed.add_field(
@@ -436,7 +486,7 @@ class Quomisc(Cog, name="quomisc"):
                 f"{chnl_count[discord.ChannelType.text] + chnl_count[discord.ChannelType.voice]:,} total\n"
                 f"{chnl_count[discord.ChannelType.text]:,} text\n"
                 f"{chnl_count[discord.ChannelType.voice]:,} voice"
-            ),
+            )
         )
 
         embed.add_field(
@@ -445,7 +495,7 @@ class Quomisc(Cog, name="quomisc"):
                 f"{total_command_uses:,} globally\n"
                 f"{server_invokes:,} in this server\n"
                 f"{user_invokes:,} by you."
-            ),
+            )
         )
 
         embed.add_field(
@@ -459,7 +509,7 @@ class Quomisc(Cog, name="quomisc"):
                 f"**RAM:** "
                 f"{used_memory}/{total_memory} MB\n"
                 f"**CPU:** {cpu_used}%"
-            ),
+            )
         )
 
         embed.add_field(
@@ -468,17 +518,20 @@ class Quomisc(Cog, name="quomisc"):
                 f"Originally created by "
                 f"[**{str(legacy_owner)}**]"
                 f"(https://github.com/deadaf), "
-                f"whose vision built the foundation of Shinchan."
+                f"whose vision built the foundation "
+                f"of Shinchan."
             ),
-            inline=False,
+            inline=False
         )
 
         embed.set_footer(
             text=(
                 f"Made with discord.py v{version} "
-                f"| Powered by Mod Tryout"
+                f"| Powered by Devspire"
             ),
-            icon_url="http://i.imgur.com/5BFecvA.png",
+            icon_url=(
+                "http://i.imgur.com/5BFecvA.png"
+            ),
         )
 
         links = [
@@ -495,7 +548,7 @@ class Quomisc(Cog, name="quomisc"):
         await ctx.send(
             embed=embed,
             embed_perms=True,
-            view=LinkButton(links),
+            view=LinkButton(links)
         )
 
     @commands.command()
@@ -503,7 +556,8 @@ class Quomisc(Cog, name="quomisc"):
         """Check how the bot is doing"""
 
         await ctx.send(
-            f"Bot: `{round(self.bot.latency * 1000, 2)} ms`, "
+            f"Bot: "
+            f"`{round(self.bot.latency * 1000, 2)} ms`, "
             f"Database: `{await self.bot.db_latency}`"
         )
 
@@ -530,7 +584,7 @@ class Quomisc(Cog, name="quomisc"):
         else:
             await Votes.create(
                 user_id=ctx.author.id,
-                reminder=True,
+                reminder=True
             )
 
             await ctx.success(
@@ -548,6 +602,7 @@ class Quomisc(Cog, name="quomisc"):
         """Change your server's prefix"""
 
         if not new_prefix:
+
             prefix = (
                 self.bot.cache.guild_data[
                     ctx.guild.id
@@ -563,7 +618,8 @@ class Quomisc(Cog, name="quomisc"):
 
         if len(new_prefix) > 5:
             return await ctx.error(
-                "Prefix cannot contain more than 5 characters."
+                "Prefix cannot contain more than "
+                "5 characters."
             )
 
         self.bot.cache.guild_data[
@@ -592,9 +648,8 @@ class Quomisc(Cog, name="quomisc"):
         """Change color of Shinchan's embeds"""
 
         color = int(
-            str(new_color)
-            .replace("#", ""),
-            16,
+            str(new_color).replace("#", ""),
+            16
         )
 
         self.bot.cache.guild_data[
@@ -624,7 +679,8 @@ class Quomisc(Cog, name="quomisc"):
 
         if len(new_footer) > 50:
             return await ctx.success(
-                "Footer cannot contain more than 50 characters."
+                "Footer cannot contain more than "
+                "50 characters."
             )
 
         self.bot.cache.guild_data[
@@ -671,13 +727,13 @@ class Quomisc(Cog, name="quomisc"):
                 label="Claim Prime (120 coins)",
                 custom_id="claim_prime",
                 style=discord.ButtonStyle.grey,
-                disabled=True,
+                disabled=True
             )
 
         _view.message = await ctx.send(
             embed=e,
             embed_perms=True,
-            view=_view,
+            view=_view
         )
 
     @commands.command()
@@ -691,7 +747,8 @@ class Quomisc(Cog, name="quomisc"):
         e.description = (
             "**Rewards**\n"
             f"{emote.roocool} Voter Role `12 hrs`\n"
-            f"{self.bot.config.PRIME_EMOJI} Quo Coin `x1`"
+            f"{self.bot.config.PRIME_EMOJI} "
+            f"Quo Coin `x1`"
         )
 
         e.set_thumbnail(
@@ -705,7 +762,7 @@ class Quomisc(Cog, name="quomisc"):
         )
 
         if vote and vote.is_voter:
-            _b = discord.ui.Button(
+            _b: discord.ui.Button = discord.ui.Button(
                 disabled=True,
                 style=discord.ButtonStyle.grey,
                 custom_id="vote_quo",
@@ -728,22 +785,24 @@ class Quomisc(Cog, name="quomisc"):
             icon_url=getattr(
                 ctx.author.display_avatar,
                 "url",
-                self.bot.user.display_avatar.url,
+                self.bot.user.display_avatar.url
             ),
         )
 
         _view.message = await ctx.send(
             embed=e,
             view=_view,
-            embed_perms=True,
+            embed_perms=True
         )
 
     @commands.command()
     async def dashboard(self, ctx: Context):
 
         await ctx.send(
-            "Here is the direct link to this server's dashboard:\n"
-            f"<https://quotientbot.xyz/dashboard/{ctx.guild.id}>"
+            "Here is the direct link to this server's "
+            "dashboard:\n"
+            f"<https://quotientbot.xyz/dashboard/"
+            f"{ctx.guild.id}>"
         )
 
     @commands.hybrid_command()
@@ -763,7 +822,7 @@ class Quomisc(Cog, name="quomisc"):
         e = discord.Embed(
             title="Project Contributors",
             color=self.bot.color,
-            timestamp=self.bot.current_time,
+            timestamp=self.bot.current_time
         )
 
         e.description = ""
