@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+from datetime import timedelta
 
 from cogs.esports.events.slots import SlotManagerEvents
 from cogs.esports.views.scrims.main import ScrimsMain
@@ -151,15 +152,16 @@ class ScrimManager(Cog, name="Esports"):
         )
 
     # ************************************************************************************************
-    # FIXED IDP COMMAND
+    # ************************************************************************************************
+    # IDP / SCRIMS FORMAT
     # ************************************************************************************************
 
     @commands.hybrid_command(
+        name="idp",
         aliases=("quickidp",),
         extras={
             "examples": [
-                "idp 1234 pass Miramar",
-                "idp 1234 pass Sanhok @role"
+                "idp TORMENTA T3 SCRIMS | 3 | 2282720 | T3M3 | MIRAMAR | 4:40 | @Admin"
             ]
         }
     )
@@ -176,101 +178,129 @@ class ScrimManager(Cog, name="Esports"):
     async def idp(
         self,
         ctx: Context,
-        room_id: str,
-        password: str,
-        map: str,
-        role_to_ping: Optional[discord.Role] = None
+        *,
+        data: str
     ):
         """
-        Share Id/pass with embed quickly.
-        Message is automatically deleted after 30 minutes.
+        Send professional Scrims ID/Password format.
+
+        Format:
+        idp <scrims name> | <match no> | <room id> | <password> | <map> | <start time> | <role>
         """
 
-        await ctx.message.delete(delay=0)
+        parts = [
+            x.strip()
+            for x in data.split("|")
+            if x.strip()
+        ]
 
-        room_id = truncate_string(
-            room_id,
-            100
-        )
+        if len(parts) not in (6, 7):
+            return await ctx.error(
+                "❌ **Invalid IDP format!**\n\n"
+                f"Use:\n"
+                f"`{ctx.prefix}idp "
+                f"<scrims name> | <match no> | <room id> | "
+                f"<password> | <map> | <start time> | <role>`\n\n"
+                "**Example:**\n"
+                f"`{ctx.prefix}idp TORMENTA T3 SCRIMS | 3 | "
+                f"2282720 | T3M3 | MIRAMAR | 4:40 | @Admin`"
+            )
 
-        password = truncate_string(
-            password,
-            100
-        )
+        scrims_name = parts[0]
+        match_no = parts[1]
+        room_id = parts[2]
+        password = parts[3]
+        map_name = parts[4]
+        start_time = parts[5]
 
-        map = truncate_string(
-            map,
-            100
-        )
+        role_to_ping = None
 
-        _e = discord.Embed(
+        if len(parts) == 7:
+            role_text = parts[6].strip()
+
+            if ctx.guild:
+                if role_text.startswith("<@&") and role_text.endswith(">"):
+                    try:
+                        role_id = int(role_text[3:-1])
+                        role_to_ping = ctx.guild.get_role(role_id)
+                    except ValueError:
+                        role_to_ping = None
+
+                if role_to_ping is None:
+                    try:
+                        role_to_ping = ctx.guild.get_role(int(role_text))
+                    except ValueError:
+                        pass
+
+                if role_to_ping is None:
+                    role_to_ping = discord.utils.find(
+                        lambda role: role.name.lower() == role_text.lower(),
+                        ctx.guild.roles
+                    )
+
+        server_name = ctx.guild.name
+
+        if ctx.guild.icon:
+            server_logo = ctx.guild.icon.url
+        else:
+            server_logo = self.bot.user.display_avatar.url
+
+        try:
+            await ctx.message.delete(delay=0)
+        except discord.HTTPException:
+            pass
+
+        embed = discord.Embed(
             color=self.bot.color
         )
 
-        # FIXED:
-        # self.bot.user.avatar.url can be None.
-        # display_avatar always returns a valid avatar.
-        guild_icon = (
-            getattr(ctx.guild.icon, "url", None)
-            if ctx.guild
-            else None
+        embed.title = scrims_name.upper()
+        embed.description = (
+            f"**MATCH NO. — {match_no}**\n\n"
+            f"**ID — {room_id}**\n"
+            f"**PASS — {password}**\n"
+            f"**MAP — {map_name.upper()}**\n"
+            f"**START TIME — {start_time}**\n\n"
+            f"• Wasting a slot will result in a **Scrims ban**.\n\n"
+            f"• Screenshots submission is compulsory within 30 minutes "
+            f"after completion of both matches or you will get **NO points**.\n\n"
+            f"> **--- NO SS = NO POINTS ---**"
         )
 
-        thumbnail_url = (
-            guild_icon
-            or self.bot.user.display_avatar.url
+        embed.set_thumbnail(url=server_logo)
+
+        role_text = role_to_ping.mention if role_to_ping else ""
+
+        embed.add_field(
+            name="\u200b",
+            value=(
+                f"Thanks & Regards,\n"
+                f"**{server_name}**\n"
+                f"{role_text}"
+            ),
+            inline=False
         )
 
-        _e.set_thumbnail(
-            url=thumbnail_url
+        embed.set_footer(
+            text=server_name,
+            icon_url=server_logo
         )
 
-        _e.set_author(
-            name=ctx.author,
-            icon_url=ctx.author.display_avatar.url
-        )
-
-        _e.add_field(
-            name="Room ID",
-            value=room_id
-        )
-
-        _e.add_field(
-            name="Password",
-            value=password
-        )
-
-        _e.add_field(
-            name="Map",
-            value=map
-        )
-
-        _e.set_footer(
-            text="Auto-delete time"
-        )
-
-        _e.timestamp = (
-            self.bot.current_time
-            + timedelta(minutes=30)
+        embed.timestamp = (
+            self.bot.current_time + timedelta(minutes=30)
         )
 
         view = IdpView(
             room_id,
             password,
-            map
+            map_name
         )
 
         msg = await ctx.send(
-            content=(
-                role_to_ping.mention
-                if role_to_ping
-                else None
-            ),
-            embed=_e,
+            content=role_to_ping.mention if role_to_ping else None,
+            embed=embed,
             view=view,
-            allowed_mentions=discord.AllowedMentions(
-                roles=True
-            ),
+            allowed_mentions=discord.AllowedMentions(roles=True)
         )
 
         await self.bot.wait_and_delete(
@@ -278,7 +308,6 @@ class ScrimManager(Cog, name="Esports"):
             30 * 60
         )
 
-    # ************************************************************************************************
     # EASY TAG
     # ************************************************************************************************
 
