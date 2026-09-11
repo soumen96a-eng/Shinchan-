@@ -8,13 +8,12 @@ import aiohttp
 import discord
 from discord.ext.commands import Cog
 
-from src.bot import Shinchan
-
 
 class Ssverification(Cog):
-    def __init__(self, bot: Shinchan):
+    def __init__(self, bot):
         self.bot = bot
 
+        # OCR API URL
         self.fastapi_url = os.getenv(
             "FASTAPI_URL",
             getattr(self.bot.config, "FASTAPI_URL", "")
@@ -26,6 +25,7 @@ class Ssverification(Cog):
             else ""
         )
 
+        # OCR API Key
         self.headers = {
             "authorization": os.getenv(
                 "FASTAPI_KEY",
@@ -38,9 +38,8 @@ class Ssverification(Cog):
 
     async def _ocr_request(self, data):
         """
-        Normal OCR request.
-        If the OCR server has an SNI/TLS problem, retry using
-        the resolved IP while preserving the original Host header.
+        Send screenshot to OCR API.
+        Includes SSL/SNI fallback for problematic OCR servers.
         """
 
         timeout = aiohttp.ClientTimeout(total=45)
@@ -52,29 +51,31 @@ class Ssverification(Cog):
                 headers=self.headers,
                 timeout=timeout,
             ) as resp:
+
                 return await resp.json()
 
         except aiohttp.ClientConnectorSSLError:
             # SSL/SNI fallback
             try:
-                hostname = socket.gethostbyname(
-                    self.fastapi_url.split("://", 1)[-1].split("/", 1)[0]
+                hostname = self.fastapi_url.split(
+                    "://", 1
+                )[-1].split("/", 1)[0]
+
+                resolved_ip = socket.gethostbyname(hostname)
+
+                fallback_url = (
+                    f"https://{resolved_ip}/ocr"
                 )
-
-                original_host = (
-                    self.fastapi_url
-                    .split("://", 1)[-1]
-                    .split("/", 1)[0]
-                )
-
-                fallback_url = f"https://{hostname}/ocr"
-
-                unsafe_ssl = ssl.create_default_context()
-                unsafe_ssl.check_hostname = False
-                unsafe_ssl.verify_mode = ssl.CERT_NONE
 
                 fallback_headers = dict(self.headers)
-                fallback_headers["Host"] = original_host
+
+                # Keep original hostname for virtual-host routing
+                fallback_headers["Host"] = hostname
+
+                unsafe_ssl = ssl.create_default_context()
+
+                unsafe_ssl.check_hostname = False
+                unsafe_ssl.verify_mode = ssl.CERT_NONE
 
                 async with self.bot.session.post(
                     fallback_url,
@@ -83,19 +84,49 @@ class Ssverification(Cog):
                     timeout=timeout,
                     ssl=unsafe_ssl,
                 ) as resp:
+
                     return await resp.json()
 
             except Exception as exc:
                 print(
-                    f"[SSVERIFY] SSL fallback failed: "
+                    "[SSVERIFY] SSL fallback failed: "
                     f"{type(exc).__name__}: {exc}"
                 )
+
                 raise
+
+    async def _send_loading_message(self, message, count):
+        try:
+            return await message.channel.send(
+                f"Processing your {count} "
+                f"screenshot{'s' if count != 1 else ''}... loading"
+            )
+
+        except Exception as exc:
+            print(
+                "[SSVERIFY] Failed to send loading message: "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            return None
+
+    async def _edit_message(self, message, content):
+        if not message:
+            return
+
+        try:
+            await message.edit(content=content)
+
+        except Exception as exc:
+            print(
+                "[SSVERIFY] Failed to edit message: "
+                f"{type(exc).__name__}: {exc}"
+            )
 
     @Cog.listener()
     async def on_message(self, message: discord.Message):
 
-        # Ignore bots
+        # Ignore bot messages
         if message.author.bot:
             return
 
@@ -103,34 +134,41 @@ class Ssverification(Cog):
         if not message.attachments:
             return
 
-        # Only process image attachments
+        # Only images
         image_attachments = [
             attachment
             for attachment in message.attachments
-            if attachment.content_type
-            and attachment.content_type.startswith("image/")
+            if (
+                attachment.content_type
+                and attachment.content_type.startswith("image/")
+            )
         ]
 
         if not image_attachments:
             return
 
-        # OCR endpoint missing
+        # OCR API configuration check
         if not self.request_url:
-            try:
-                await message.channel.send(
-                    "❌ SS verification is not configured."
-                )
-            except Exception:
-                pass
+
+            await self._edit_message(
+                await self._send_loading_message(
+                    message,
+                    len(image_attachments)
+                ),
+                "❌ **SS Verification is not configured.**"
+            )
+
             return
 
-        loading_message = None
+        loading_message = await self._send_loading_message(
+            message,
+            len(image_attachments)
+        )
+
+        if not loading_message:
+            return
 
         try:
-            loading_message = await message.channel.send(
-                f"Processing your {len(image_attachments)} "
-                f"screenshot{'s' if len(image_attachments) != 1 else ''}... loading"
-            )
 
             async with self.__verify_lock:
 
@@ -139,83 +177,127 @@ class Ssverification(Cog):
                 for attachment in image_attachments:
 
                     try:
+                        # Download screenshot
                         image_bytes = await attachment.read()
 
-                        _data = {
-                            "image": image_bytes.hex()
+                        # Convert image to hex
+                        image_hex = image_bytes.hex()
+
+                        data = {
+                            "image": image_hex
                         }
 
-                        _ocr = await self._ocr_request(_data)
+                        # Send to OCR API
+                        ocr_result = await self._ocr_request(
+                            data
+                        )
 
-                        if not isinstance(_ocr, list):
+                        if not isinstance(ocr_result, list):
                             print(
-                                "[SSVERIFY] OCR server returned "
+                                "[SSVERIFY] OCR API returned "
                                 "an unexpected response."
                             )
+
                             continue
 
-                        results.extend(_ocr)
+                        results.extend(ocr_result)
 
-                    except (
-                        aiohttp.ClientError,
-                        asyncio.TimeoutError,
-                        OSError,
-                        ValueError,
-                    ) as exc:
+                    except aiohttp.ClientConnectorSSLError as exc:
 
                         print(
-                            f"[SSVERIFY] OCR request failed: "
+                            "[SSVERIFY] SSL error: "
                             f"{type(exc).__name__}: {exc}"
                         )
 
                         continue
 
-                # Nothing could be verified
-                if not results:
+                    except aiohttp.ClientError as exc:
 
-                    try:
-                        await loading_message.edit(
-                            content=(
-                                "❌ **SS Verification temporarily unavailable.**\n"
-                                "The OCR verification server could not be reached. "
-                                "Please try again later."
-                            )
+                        print(
+                            "[SSVERIFY] HTTP error: "
+                            f"{type(exc).__name__}: {exc}"
                         )
-                    except Exception:
-                        pass
 
-                    return
-
-                # Process OCR results
-                verified = []
-
-                for result in results:
-
-                    if not isinstance(result, dict):
                         continue
 
-                    verified.append(result)
+                    except asyncio.TimeoutError:
 
-                if not verified:
-
-                    try:
-                        await loading_message.edit(
-                            content=(
-                                "❌ **No valid screenshot data was detected.**"
-                            )
+                        print(
+                            "[SSVERIFY] OCR request timed out."
                         )
-                    except Exception:
-                        pass
+
+                        continue
+
+                    except OSError as exc:
+
+                        print(
+                            "[SSVERIFY] OS error: "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+
+                        continue
+
+                    except ValueError as exc:
+
+                        print(
+                            "[SSVERIFY] Invalid OCR response: "
+                            f"{exc}"
+                        )
+
+                        continue
+
+                    except Exception as exc:
+
+                        print(
+                            "[SSVERIFY] Screenshot processing error: "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+
+                        continue
+
+                # Nothing returned from OCR
+                if not results:
+
+                    await self._edit_message(
+                        loading_message,
+                        (
+                            "❌ **SS Verification temporarily unavailable.**\n"
+                            "The OCR verification server could not be reached.\n"
+                            "Please try again later."
+                        )
+                    )
 
                     return
 
-                # Build result text
-                lines = [
-                    "✅ **Screenshot verification completed.**",
-                    "",
+                # Validate results
+                valid_results = [
+                    result
+                    for result in results
+                    if isinstance(result, dict)
                 ]
 
-                for index, result in enumerate(verified, start=1):
+                if not valid_results:
+
+                    await self._edit_message(
+                        loading_message,
+                        (
+                            "❌ **No valid screenshot data was detected.**\n"
+                            "Please upload a clear screenshot and try again."
+                        )
+                    )
+
+                    return
+
+                # Build result
+                lines = [
+                    "✅ **Screenshot verification completed.**",
+                    ""
+                ]
+
+                for index, result in enumerate(
+                    valid_results,
+                    start=1
+                ):
 
                     lines.append(
                         f"**Screenshot {index}:**"
@@ -226,48 +308,50 @@ class Ssverification(Cog):
                         if value is None:
                             continue
 
+                        formatted_key = (
+                            str(key)
+                            .replace("_", " ")
+                            .title()
+                        )
+
                         lines.append(
-                            f"• **{str(key).replace('_', ' ').title()}:** "
-                            f"{value}"
+                            f"• **{formatted_key}:** {value}"
                         )
 
                     lines.append("")
 
                 result_text = "\n".join(lines)
 
-                # Discord message limit protection
+                # Discord message limit
                 if len(result_text) > 1900:
-                    result_text = result_text[:1890] + "\n..."
 
-                try:
-                    await loading_message.edit(
-                        content=result_text
+                    result_text = (
+                        result_text[:1890]
+                        + "\n..."
                     )
-                except Exception as exc:
-                    print(
-                        f"[SSVERIFY] Failed to edit result message: "
-                        f"{type(exc).__name__}: {exc}"
-                    )
+
+                await self._edit_message(
+                    loading_message,
+                    result_text
+                )
 
         except Exception as exc:
 
             print(
-                f"[SSVERIFY] Unexpected error: "
+                "[SSVERIFY] Unexpected error: "
                 f"{type(exc).__name__}: {exc}"
             )
 
-            if loading_message:
-
-                try:
-                    await loading_message.edit(
-                        content=(
-                            "❌ **SS Verification failed.**\n"
-                            "Please try again later."
-                        )
-                    )
-                except Exception:
-                    pass
+            await self._edit_message(
+                loading_message,
+                (
+                    "❌ **SS Verification failed.**\n"
+                    "Please try again later."
+                )
+            )
 
 
-async def setup(bot: Shinchan):
-    await bot.add_cog(Ssverification(bot))
+async def setup(bot):
+    await bot.add_cog(
+        Ssverification(bot)
+    )
